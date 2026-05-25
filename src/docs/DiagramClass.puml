@@ -1,0 +1,147 @@
+@startuml BankingSystem
+
+skinparam classAttributeIconSize 0
+left to right direction
+
+title Sistema Bancário - Diagrama de Classes
+
+' ── Enum ────────────────────────────────────────
+enum TransactionType {
+    DEPOSIT
+    WITHDRAW
+    TRANSFER
+    PAYMENT
+    LOAN
+}
+
+' ── Exceção ─────────────────────────────────────
+class BankException {
+    +BankException(msg : String)
+}
+note right of BankException : extends RuntimeException
+
+' ── Entidades de domínio ─────────────────────────
+class Transaction {
+    -moment : LocalDateTime
+    -type : TransactionType
+    -amount : Double
+    -fmt : DateTimeFormatter
+
+    +Transaction(moment : LocalDateTime, type : TransactionType, amount : Double)
+    +toString() : String
+}
+
+class Account {
+    -number : Integer
+    -holder : String
+    #balance : Double
+    -withdrawLimit : Double
+    -transactions : List<Transaction>
+
+    +Account(number : Integer, holder : String, balance : Double, withdrawLimit : Double)
+    +deposit(amount : Double) : void
+    +withdraw(amount : Double) : void
+    +transfer(target : Account, amount : Double) : void
+    +payment(amount : Double, service : PaymentService) : void
+    +addTransaction(type : TransactionType, amount : Double) : void
+    +getNumber() : Integer
+    +getHolder() : String
+    +getBalance() : Double
+    +getTransactions() : List<Transaction>
+    +toString() : String
+}
+
+' ── Especializações de Account ──────────────────
+class SavingsAccount {
+    -interestRate : Double
+
+    +SavingsAccount(number : Integer, holder : String, balance : Double, withdrawLimit : Double, interestRate : Double)
+    +updateBalance() : void
+    +withdraw(amount : Double) : void
+}
+
+class BusinessAccount {
+    -loanLimit : Double
+
+    +BusinessAccount(number : Integer, holder : String, balance : Double, withdrawLimit : Double, loanLimit : Double)
+    +loan(amount : Double) : void
+}
+
+' ── Serviço de pagamento ─────────────────────────
+interface PaymentService {
+    +applyFee(amount : Double) : Double
+}
+
+class PixPayment {
+    +applyFee(amount : Double) : Double
+}
+
+class CreditCardPayment {
+    +applyFee(amount : Double) : Double
+}
+
+class BoletoPayment {
+    +applyFee(amount : Double) : Double
+}
+
+' ── Serviços de aplicação ────────────────────────
+class BankService {
+    -accounts : Map<Integer, Account>
+
+    +createAccount(account : Account) : void
+    +findAccount(number : Integer) : Account
+    +deposit(number : Integer, amount : Double) : void
+    +withdraw(number : Integer, amount : Double) : void
+    +transfer(from : Integer, to : Integer, amount : Double) : void
+    +payment(number : Integer, amount : Double, service : PaymentService) : void
+    +applyLoan(number : Integer, amount : Double) : void
+    +getAccounts() : List<Account>
+    +showStatement(number : Integer) : void
+}
+
+class StatementService {
+    +generate(account : Account) : void
+    -writeTransactions(account : Account) : void
+}
+
+' ══════════════════════════════════════════════════
+'  RELACIONAMENTOS
+' ══════════════════════════════════════════════════
+
+' Composição: Account contém suas Transactions
+Account "1" *-- "0..*" Transaction
+
+' Transaction classifica por TransactionType
+Transaction --> TransactionType
+
+' Herança
+SavingsAccount  -up-|> Account
+BusinessAccount -up-|> Account
+
+' Realização de interface
+PixPayment        ..|> PaymentService
+CreditCardPayment ..|> PaymentService
+BoletoPayment     ..|> PaymentService
+
+' BankService gerencia Accounts via HashMap
+BankService "1" o-- "0..*" Account : gerencia
+
+' BankService depende de PaymentService
+BankService ..> PaymentService : usa
+
+' Account depende de PaymentService para pagamento
+Account ..> PaymentService : usa
+
+' StatementService processa Account
+StatementService ..> Account : processa
+
+' BankService usa StatementService
+BankService ..> StatementService : delega
+
+' Exceções lançadas
+Account         ..> BankException : <<throws>>
+SavingsAccount  ..> BankException : <<throws>>
+BusinessAccount ..> BankException : <<throws>>
+BankService     ..> BankException : <<throws>>
+
+@enduml
